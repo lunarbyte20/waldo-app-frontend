@@ -2,10 +2,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import '../services/api_service.dart';
-import '../services/telemetry_service.dart';
-import 'history_screen.dart';
-import 'login_screen.dart';
+import '../../core/constants/app_constants.dart';
+import '../../models/attendance_record.dart';
+import '../../services/api_service.dart';
+import '../../services/telemetry_service.dart';
+import '../auth/login_screen.dart';
+import '../history/history_screen.dart';
 
 class ClockScreen extends StatefulWidget {
   const ClockScreen({super.key});
@@ -17,7 +19,7 @@ class ClockScreen extends StatefulWidget {
 class _ClockScreenState extends State<ClockScreen> {
   bool _isLoadingStatus = true;
   bool _isActionInProgress = false;
-  Map<String, dynamic>? _activeRecord;
+  AttendanceRecord? _activeRecord;
   int? _assignedSiteId;
   List<dynamic> _availableSchedules = [];
   dynamic _selectedSchedule;
@@ -31,12 +33,12 @@ class _ClockScreenState extends State<ClockScreen> {
   Future<void> _fetchAttendanceStatus() async {
     setState(() => _isLoadingStatus = true);
     try {
-      final res = await ApiService.getAttendanceStatus();
+      final statusModel = await ApiService.getAttendanceStatusModel();
       if (!mounted) return;
       setState(() {
-        _activeRecord = res['active_record'] as Map<String, dynamic>?;
-        _assignedSiteId = res['assigned_site_id'] as int?;
-        _availableSchedules = res['available_schedules'] as List<dynamic>? ?? [];
+        _activeRecord = statusModel.activeRecord;
+        _assignedSiteId = statusModel.assignedSiteId;
+        _availableSchedules = statusModel.availableSchedules;
         if (_availableSchedules.isNotEmpty) {
           _selectedSchedule = _availableSchedules.first;
         }
@@ -50,7 +52,7 @@ class _ClockScreenState extends State<ClockScreen> {
   }
 
   Future<void> _handleClockAction() async {
-    // 1. Prompt for Camera Selfie (Camera ONLY - fraud prevention)
+    // 1. Prompt for Camera Selfie (Camera ONLY - fraud prevention requirement)
     final ImagePicker picker = ImagePicker();
     final XFile? photo = await picker.pickImage(
       source: ImageSource.camera, // STRICT REQUIREMENT: Camera ONLY, no gallery
@@ -207,7 +209,7 @@ class _ClockScreenState extends State<ClockScreen> {
       appBar: AppBar(
         leading: Padding(
           padding: const EdgeInsets.all(8.0),
-          child: Image.asset('assets/images/logo.png', fit: BoxFit.contain),
+          child: Image.asset(AppConstants.logoAssetPath, fit: BoxFit.contain),
         ),
         title: const Text('WALDO Guard Clock'),
         centerTitle: true,
@@ -321,7 +323,7 @@ class _ClockScreenState extends State<ClockScreen> {
 
                       if (isClockedIn && _activeRecord != null) ...[
                         Text(
-                          'Clocked in since: ${_activeRecord!['clock_in'] ?? 'Recently'}',
+                          'Clocked in since: ${_activeRecord!.clockIn ?? 'Recently'}',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
@@ -410,10 +412,10 @@ class _ClockScreenState extends State<ClockScreen> {
                   children: [
                     Icon(Icons.security_rounded, color: theme.colorScheme.primary, size: 24),
                     const SizedBox(width: 12),
-                    Expanded(
+                    const Expanded(
                       child: Text(
-                        'Location & camera selfie will be recorded for anti-spoofing compliance.',
-                        style: theme.textTheme.bodySmall,
+                        AppConstants.antiSpoofingNotice,
+                        style: TextStyle(fontSize: 12),
                       ),
                     ),
                   ],

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../services/api_service.dart';
+import '../../models/attendance_record.dart';
+import '../../services/api_service.dart';
+import '../../widgets/error_banner.dart';
+import '../../widgets/status_badge.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -12,7 +15,7 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> {
   bool _isLoading = true;
   String? _errorMessage;
-  List<dynamic> _historyList = [];
+  List<AttendanceRecord> _historyRecords = [];
 
   @override
   void initState() {
@@ -27,19 +30,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
     });
 
     try {
-      final res = await ApiService.getAttendanceHistory(page: page);
+      final records = await ApiService.getAttendanceHistoryRecords(page: page);
       if (!mounted) return;
 
-      final data = res['data'];
-      List<dynamic> items = [];
-      if (data is List) {
-        items = data;
-      } else if (data is Map && data.containsKey('data')) {
-        items = data['data'] as List<dynamic>? ?? [];
-      }
-
       setState(() {
-        _historyList = items;
+        _historyRecords = records;
         _isLoading = false;
       });
     } catch (e) {
@@ -78,28 +73,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ? Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.error_outline_rounded,
-                              size: 48, color: theme.colorScheme.error),
-                          const SizedBox(height: 16),
-                          Text(
-                            _errorMessage!,
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                          const SizedBox(height: 16),
-                          ElevatedButton.icon(
-                            onPressed: () => _fetchHistory(page: 1),
-                            icon: const Icon(Icons.refresh_rounded),
-                            label: const Text('Retry'),
-                          ),
-                        ],
+                      child: ErrorBanner(
+                        message: _errorMessage!,
+                        onRetry: () => _fetchHistory(page: 1),
                       ),
                     ),
                   )
-                : _historyList.isEmpty
+                : _historyRecords.isEmpty
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -118,19 +98,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       )
                     : ListView.builder(
                         padding: const EdgeInsets.all(16.0),
-                        itemCount: _historyList.length,
+                        itemCount: _historyRecords.length,
                         itemBuilder: (context, index) {
-                          final item = _historyList[index] as Map<String, dynamic>;
-                          final String gpsStatus =
-                              item['gps_status']?.toString() ?? 'Valid';
-                          final bool isFlagged =
-                              (gpsStatus.toLowerCase() == 'flagged');
+                          final item = _historyRecords[index];
+                          final bool isFlagged = item.isFlagged;
 
-                          final String clockIn = _formatDateTime(item['clock_in']?.toString());
-                          final String? clockOut = item['clock_out'] != null
-                              ? _formatDateTime(item['clock_out']?.toString())
+                          final String clockIn = _formatDateTime(item.clockIn);
+                          final String? clockOut = item.clockOut != null
+                              ? _formatDateTime(item.clockOut)
                               : null;
-                          final String? reason = item['reason']?.toString();
+                          final String? reason = item.reason;
 
                           return Card(
                             margin: const EdgeInsets.only(bottom: 12.0),
@@ -149,44 +126,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
                                       // Status Badge (Approved vs Flagged)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 10, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: isFlagged
-                                              ? Colors.amber.shade100
-                                              : Colors.green.shade100,
-                                          borderRadius: BorderRadius.circular(20),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              isFlagged
-                                                  ? Icons.warning_amber_rounded
-                                                  : Icons.check_circle_rounded,
-                                              size: 16,
-                                              color: isFlagged
-                                                  ? Colors.amber.shade900
-                                                  : Colors.green.shade900,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              isFlagged ? 'FLAGGED LOCATION' : 'VALID / APPROVED',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.bold,
-                                                color: isFlagged
-                                                    ? Colors.amber.shade900
-                                                    : Colors.green.shade900,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
+                                      StatusBadge(isFlagged: isFlagged),
 
-                                      if (item.containsKey('hours_worked') && item['hours_worked'] != null)
+                                      if (item.hoursWorked != null)
                                         Text(
-                                          '${item['hours_worked']} hrs',
+                                          '${item.hoursWorked} hrs',
                                           style: theme.textTheme.titleMedium?.copyWith(
                                             fontWeight: FontWeight.bold,
                                           ),

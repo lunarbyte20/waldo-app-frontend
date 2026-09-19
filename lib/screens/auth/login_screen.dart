@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import '../services/api_service.dart';
-import '../services/telemetry_service.dart';
-import 'clock_screen.dart';
+import '../../core/constants/app_constants.dart';
+import '../../core/utils/validators.dart';
+import '../../services/api_service.dart';
+import '../../services/telemetry_service.dart';
+import '../../widgets/loading_button.dart';
+import '../clock/clock_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -86,7 +89,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   // App Branding / Official Logo Header
                   Center(
                     child: Image.asset(
-                      'assets/images/logo.png',
+                      AppConstants.logoAssetPath,
                       height: 110,
                       fit: BoxFit.contain,
                     ),
@@ -152,12 +155,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         borderSide: const BorderSide(color: Color(0xFF0F172A), width: 1.5),
                       ),
                     ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Please enter your username or email';
-                      }
-                      return null;
-                    },
+                    validator: (value) => Validators.validateRequired(value, 'username or email'),
                   ),
                   const SizedBox(height: 20),
 
@@ -209,12 +207,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         borderSide: const BorderSide(color: Color(0xFF0F172A), width: 1.5),
                       ),
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your password';
-                      }
-                      return null;
-                    },
+                    validator: (value) => Validators.validateRequired(value, 'password'),
                   ),
                   const SizedBox(height: 16),
 
@@ -248,35 +241,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Sign In Button
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : _handleLogin,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      backgroundColor: const Color(0xFF162447),
-                      foregroundColor: Colors.white,
-                      elevation: 2,
-                      shadowColor: const Color(0x4D162447),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
-                        : const Text(
-                            'Sign in',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                  // Reusable Loading Button
+                  LoadingButton(
+                    onPressed: _handleLogin,
+                    isLoading: _isLoading,
+                    text: 'Sign in',
+                    backgroundColor: const Color(0xFF162447),
                   ),
                   const SizedBox(height: 24),
 

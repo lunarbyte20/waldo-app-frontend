@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'screens/clock_screen.dart';
-import 'screens/login_screen.dart';
+import 'core/constants/app_constants.dart';
+import 'core/theme/app_theme.dart';
+import 'screens/auth/login_screen.dart';
+import 'screens/clock/clock_screen.dart';
 import 'services/api_service.dart';
 
 void main() async {
@@ -18,54 +20,11 @@ class WaldoGuardApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // WALDO navy blue seed color
-    const Color seedColor = Color(0xFF1B2A6B);
-
     return MaterialApp(
-      title: 'WALDO Guard',
+      title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: seedColor,
-          brightness: Brightness.light,
-        ),
-        appBarTheme: const AppBarTheme(
-          centerTitle: true,
-          elevation: 0,
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          filled: true,
-        ),
-        cardTheme: CardThemeData(
-          elevation: 1,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-      ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: seedColor,
-          brightness: Brightness.dark,
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          filled: true,
-        ),
-        cardTheme: CardThemeData(
-          elevation: 1,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-      ),
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
       home: isLoggedIn ? const ClockScreen() : const LoginScreen(),
     );

@@ -1,27 +1,29 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/constants/api_constants.dart';
+import '../models/attendance_record.dart';
+import '../models/attendance_status.dart';
+import '../models/employee.dart';
 
 class ApiService {
-  // Constant Base URL easy to change later
-  static const String baseUrl = 'http://192.168.1.3:8000/api/v1';
-
-  static const String _tokenKey = 'auth_token';
+  // Uses named constant from ApiConstants
+  static const String baseUrl = ApiConstants.baseUrl;
 
   // --- Token Management ---
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_tokenKey);
+    return prefs.getString(ApiConstants.tokenKey);
   }
 
   static Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, token);
+    await prefs.setString(ApiConstants.tokenKey, token);
   }
 
   static Future<void> clearToken() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey);
+    await prefs.remove(ApiConstants.tokenKey);
   }
 
   static Future<Map<String, String>> _getHeaders() async {
@@ -39,14 +41,12 @@ class ApiService {
   // --- Authentication Endpoints ---
 
   /// POST /auth/login
-  /// Request: { "email", "password", "device_id" }
-  /// Response: { "token", "employee": {...} }
   static Future<Map<String, dynamic>> login({
     required String email,
     required String password,
     String? deviceId,
   }) async {
-    final url = Uri.parse('$baseUrl/auth/login');
+    final url = Uri.parse('$baseUrl${ApiConstants.loginEndpoint}');
     final response = await http.post(
       url,
       headers: await _getHeaders(),
@@ -66,7 +66,7 @@ class ApiService {
 
   /// POST /auth/logout (Bearer token)
   static Future<Map<String, dynamic>> logout() async {
-    final url = Uri.parse('$baseUrl/auth/logout');
+    final url = Uri.parse('$baseUrl${ApiConstants.logoutEndpoint}');
     final response = await http.post(
       url,
       headers: await _getHeaders(),
@@ -77,21 +77,26 @@ class ApiService {
 
   /// GET /auth/me (Bearer token)
   static Future<Map<String, dynamic>> getMe() async {
-    final url = Uri.parse('$baseUrl/auth/me');
+    final url = Uri.parse('$baseUrl${ApiConstants.meEndpoint}');
     final response = await http.get(
       url,
       headers: await _getHeaders(),
     );
     return _parseResponse(response);
+  }
+
+  /// Typed GET /auth/me
+  static Future<Employee> getMeModel() async {
+    final res = await getMe();
+    final empData = res['employee'] ?? res['user'] ?? res;
+    return Employee.fromJson(empData is Map<String, dynamic> ? empData : res);
   }
 
   // --- Attendance Endpoints ---
 
   /// GET /attendance/status (Bearer token)
-  /// Response includes: active_record (null or object), assigned_site_id,
-  /// geofence radius, available schedules
   static Future<Map<String, dynamic>> getAttendanceStatus() async {
-    final url = Uri.parse('$baseUrl/attendance/status');
+    final url = Uri.parse('$baseUrl${ApiConstants.attendanceStatusEndpoint}');
     final response = await http.get(
       url,
       headers: await _getHeaders(),
@@ -99,13 +104,15 @@ class ApiService {
     return _parseResponse(response);
   }
 
+  /// Typed GET /attendance/status
+  static Future<AttendanceStatus> getAttendanceStatusModel() async {
+    final res = await getAttendanceStatus();
+    return AttendanceStatus.fromJson(res);
+  }
+
   /// POST /attendance/clock-in (Bearer token)
-  /// Request: { latitude, longitude, gps_accuracy, is_mock_location,
-  /// device_id, device_model, os_version, client_timestamp, photo_data (base64 JPEG),
-  /// site_id, selected_schedule }
-  /// Response: { status, gps_status ("Valid"/"Flagged"), attendance_status, reason }
   static Future<Map<String, dynamic>> clockIn(Map<String, dynamic> payload) async {
-    final url = Uri.parse('$baseUrl/attendance/clock-in');
+    final url = Uri.parse('$baseUrl${ApiConstants.clockInEndpoint}');
     final response = await http.post(
       url,
       headers: await _getHeaders(),
@@ -115,9 +122,8 @@ class ApiService {
   }
 
   /// POST /attendance/clock-out (Bearer token)
-  /// Same request shape as clock-in, response also includes hours_worked and day_count
   static Future<Map<String, dynamic>> clockOut(Map<String, dynamic> payload) async {
-    final url = Uri.parse('$baseUrl/attendance/clock-out');
+    final url = Uri.parse('$baseUrl${ApiConstants.clockOutEndpoint}');
     final response = await http.post(
       url,
       headers: await _getHeaders(),
@@ -127,14 +133,30 @@ class ApiService {
   }
 
   /// GET /attendance/history (Bearer token)
-  /// Paginated list under "data"
   static Future<Map<String, dynamic>> getAttendanceHistory({int page = 1}) async {
-    final url = Uri.parse('$baseUrl/attendance/history?page=$page');
+    final url = Uri.parse('$baseUrl${ApiConstants.attendanceHistoryEndpoint}?page=$page');
     final response = await http.get(
       url,
       headers: await _getHeaders(),
     );
     return _parseResponse(response);
+  }
+
+  /// Typed GET /attendance/history list
+  static Future<List<AttendanceRecord>> getAttendanceHistoryRecords({int page = 1}) async {
+    final res = await getAttendanceHistory(page: page);
+    final data = res['data'];
+    List<dynamic> items = [];
+    if (data is List) {
+      items = data;
+    } else if (data is Map && data.containsKey('data')) {
+      items = data['data'] as List<dynamic>? ?? [];
+    }
+
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map((json) => AttendanceRecord.fromJson(json))
+        .toList();
   }
 
   // --- Helper Response Parser ---
