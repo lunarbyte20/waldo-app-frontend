@@ -75,6 +75,12 @@ class _ClockScreenState extends State<ClockScreen> {
       // 3. Get location & device telemetry
       final telemetry = await TelemetryService.getTelemetryPayload();
 
+      if (telemetry['latitude'] == null || telemetry['longitude'] == null) {
+        if (!mounted) return;
+        _showSnackBar('GPS location required. Please ensure location services are enabled on your device and try again.');
+        return;
+      }
+
       // 4. Build complete request payload
       final payload = <String, dynamic>{
         ...telemetry,

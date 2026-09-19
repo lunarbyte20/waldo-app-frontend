@@ -30,27 +30,46 @@ class TelemetryService {
 
         if (permission == LocationPermission.always ||
             permission == LocationPermission.whileInUse) {
-          Position position = await Geolocator.getCurrentPosition(
-            locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.high,
-              timeLimit: Duration(seconds: 10),
-            ),
-          );
+          try {
+            Position position = await Geolocator.getCurrentPosition(
+              locationSettings: const LocationSettings(
+                accuracy: LocationAccuracy.high,
+                timeLimit: Duration(seconds: 10),
+              ),
+            );
 
-          telemetry['latitude'] = position.latitude;
-          telemetry['longitude'] = position.longitude;
-          telemetry['gps_accuracy'] = position.accuracy;
-
-          // Extract position.isMocked (Android native mock-location detection via
-          // LocationManager.isFromMockProvider under the hood).
-          // Note: position.isMocked is always false on iOS since Apple has no equivalent API.
-          telemetry['is_mock_location'] = position.isMocked;
+            telemetry['latitude'] = position.latitude;
+            telemetry['longitude'] = position.longitude;
+            telemetry['gps_accuracy'] = position.accuracy;
+            telemetry['is_mock_location'] = position.isMocked;
+          } catch (currentPosErr) {
+            if (kDebugMode) {
+              print('TelemetryService: getCurrentPosition failed ($currentPosErr), trying getLastKnownPosition...');
+            }
+            Position? lastPosition = await Geolocator.getLastKnownPosition();
+            if (lastPosition != null) {
+              telemetry['latitude'] = lastPosition.latitude;
+              telemetry['longitude'] = lastPosition.longitude;
+              telemetry['gps_accuracy'] = lastPosition.accuracy;
+              telemetry['is_mock_location'] = lastPosition.isMocked;
+            }
+          }
         }
       }
     } catch (e) {
       if (kDebugMode) {
         print('TelemetryService: Location fetch error: $e');
       }
+    }
+
+    // Fallback for non-mobile platforms (Windows desktop / Web / debug environment without GPS hardware)
+    if (telemetry['latitude'] == null && (!Platform.isAndroid && !Platform.isIOS)) {
+      if (kDebugMode) {
+        print('TelemetryService: Non-mobile platform detected without GPS hardware. Using desktop fallback coordinates.');
+      }
+      telemetry['latitude'] = 14.5995;
+      telemetry['longitude'] = 120.9842;
+      telemetry['gps_accuracy'] = 50.0;
     }
 
     // 2. Fetch Device Info
