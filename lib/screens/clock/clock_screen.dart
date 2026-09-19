@@ -7,7 +7,7 @@ import '../../models/attendance_record.dart';
 import '../../services/api_service.dart';
 import '../../services/telemetry_service.dart';
 import '../auth/login_screen.dart';
-import '../history/history_screen.dart';
+import '../../widgets/app_drawer.dart';
 
 class ClockScreen extends StatefulWidget {
   const ClockScreen({super.key});
@@ -21,8 +21,12 @@ class _ClockScreenState extends State<ClockScreen> {
   bool _isActionInProgress = false;
   AttendanceRecord? _activeRecord;
   int? _assignedSiteId;
+  String? _assignedSiteName;
+  List<dynamic> _designatedSitePool = [];
   List<dynamic> _availableSchedules = [];
   dynamic _selectedSchedule;
+  int? _selectedSiteId;
+  Map<String, dynamic>? _autoClosedNotice;
 
   @override
   void initState() {
@@ -35,13 +39,34 @@ class _ClockScreenState extends State<ClockScreen> {
     try {
       final statusModel = await ApiService.getAttendanceStatusModel();
       if (!mounted) return;
+      
+      final raw = statusModel.raw;
+      final siteAssign = raw['site_assignment'] as Map<String, dynamic>?;
+      final pool = statusModel.designatedSitePool;
+      final defaultSched = statusModel.defaultSchedule;
+      final autoNotice = statusModel.autoClosedNotice;
+
       setState(() {
         _activeRecord = statusModel.activeRecord;
         _assignedSiteId = statusModel.assignedSiteId;
+        _assignedSiteName = siteAssign?['site']?['site_name']?.toString() ?? (_activeRecord?.siteName);
+        _designatedSitePool = pool;
         _availableSchedules = statusModel.availableSchedules;
-        if (_availableSchedules.isNotEmpty) {
-          _selectedSchedule = _availableSchedules.first;
+        _autoClosedNotice = autoNotice;
+
+        if (defaultSched != null && defaultSched.isNotEmpty) {
+          _selectedSchedule = defaultSched;
+        } else if (_availableSchedules.isNotEmpty) {
+          final first = _availableSchedules.first;
+          _selectedSchedule = (first is List && first.length >= 2) ? '${first[0]}-${first[1]}' : first.toString();
         }
+
+        if (_assignedSiteId != null) {
+          _selectedSiteId = _assignedSiteId;
+        } else if (_designatedSitePool.isNotEmpty) {
+          _selectedSiteId = int.tryParse(_designatedSitePool.first['id'].toString());
+        }
+
         _isLoadingStatus = false;
       });
     } catch (e) {
@@ -85,7 +110,7 @@ class _ClockScreenState extends State<ClockScreen> {
       final payload = <String, dynamic>{
         ...telemetry,
         'photo_data': photoData,
-        'site_id': _assignedSiteId,
+        'site_id': _selectedSiteId ?? _assignedSiteId,
         'selected_schedule': _selectedSchedule,
       };
 
@@ -97,8 +122,8 @@ class _ClockScreenState extends State<ClockScreen> {
       if (!mounted) return;
 
       // 5. Handle response & GPS flagged notices
-      final String gpsStatus = response['gps_status']?.toString() ?? 'Valid';
-      final String? reason = response['reason']?.toString();
+      final String gpsStatus = response['gps_status']?.toString() ?? response['record']?['gps_status']?.toString() ?? 'Valid';
+      final String? reason = response['reason']?.toString() ?? response['record']?['reason']?.toString();
 
       if (gpsStatus == 'Flagged') {
         _showPendingReviewNotice(
@@ -206,29 +231,37 @@ class _ClockScreenState extends State<ClockScreen> {
     );
   }
 
+  String _formatScheduleDisplay(dynamic sched) {
+    if (sched == null) return '08:00-20:00';
+    if (sched is List && sched.length >= 2) {
+      return '${sched[0]} - ${sched[1]}';
+    }
+    return sched.toString();
+  }
+
+  String _formatScheduleValue(dynamic sched) {
+    if (sched == null) return '08:00-20:00';
+    if (sched is List && sched.length >= 2) {
+      return '${sched[0]}-${sched[1]}';
+    }
+    return sched.toString();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final bool isClockedIn = (_activeRecord != null);
 
     return Scaffold(
+      drawer: const AppDrawer(currentRoute: 'clock'),
       appBar: AppBar(
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Image.asset(AppConstants.logoAssetPath, fit: BoxFit.contain),
-        ),
         title: const Text('WALDO Guard Clock'),
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.history_rounded),
-            tooltip: 'Attendance History',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const HistoryScreen()),
-              );
-            },
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh Status',
+            onPressed: _fetchAttendanceStatus,
           ),
           IconButton(
             icon: const Icon(Icons.logout_rounded),
@@ -245,6 +278,31 @@ class _ClockScreenState extends State<ClockScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Auto-Closed Session Notice Banner (if any)
+              if (_autoClosedNotice != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.amber.shade400),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline_rounded, color: Colors.amber.shade900),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Notice: Your previous session was automatically closed after exceeding 14 hours and flagged for review.',
+                          style: TextStyle(color: Colors.amber.shade900, fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
               // Current Date & Time Banner
               Card(
                 elevation: 0,
@@ -329,15 +387,23 @@ class _ClockScreenState extends State<ClockScreen> {
 
                       if (isClockedIn && _activeRecord != null) ...[
                         Text(
-                          'Clocked in since: ${_activeRecord!.clockIn ?? 'Recently'}',
+                          'Clocked in since: ${_activeRecord!.timeIn ?? 'Recently'}',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
+                        if (_activeRecord!.siteName != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'Duty Site: ${_activeRecord!.siteName}',
+                            style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ],
                       ] else ...[
                         Text(
-                          'Assigned Site ID: ${_assignedSiteId ?? 'Default'}',
+                          'Duty Site: ${_assignedSiteName ?? 'Assigned Duty Site'}',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -348,7 +414,72 @@ class _ClockScreenState extends State<ClockScreen> {
                 ),
               ),
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
+
+              // Shift Schedule & Duty Site Selection (Only when Clocking In)
+              if (!isClockedIn) ...[
+                Card(
+                  elevation: 1,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Shift Schedule & Duty Site',
+                          style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Shift Schedule Dropdown
+                        if (_availableSchedules.isNotEmpty) ...[
+                          DropdownButtonFormField<String>(
+                            initialValue: _selectedSchedule != null ? _formatScheduleValue(_selectedSchedule) : null,
+                            decoration: const InputDecoration(
+                              labelText: 'Select Shift Schedule',
+                              prefixIcon: Icon(Icons.access_time_rounded),
+                              border: OutlineInputBorder(),
+                            ),
+                            items: _availableSchedules.map((s) {
+                              final val = _formatScheduleValue(s);
+                              final disp = _formatScheduleDisplay(s);
+                              return DropdownMenuItem<String>(
+                                value: val,
+                                child: Text(disp, style: const TextStyle(fontWeight: FontWeight.w600)),
+                              );
+                            }).toList(),
+                            onChanged: (val) => setState(() => _selectedSchedule = val),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+
+                        // Designated Site Pool Dropdown (If Reliever/Pool Guard)
+                        if (_designatedSitePool.isNotEmpty) ...[
+                          DropdownButtonFormField<int>(
+                            initialValue: _selectedSiteId,
+                            decoration: const InputDecoration(
+                              labelText: 'Select Duty Site (Site Pool)',
+                              prefixIcon: Icon(Icons.location_on_rounded),
+                              border: OutlineInputBorder(),
+                            ),
+                            items: _designatedSitePool.map((site) {
+                              final id = int.tryParse(site['id'].toString()) ?? 0;
+                              final name = site['site_name']?.toString() ?? 'Site #$id';
+                              return DropdownMenuItem<int>(
+                                value: id,
+                                child: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                              );
+                            }).toList(),
+                            onChanged: (val) => setState(() => _selectedSiteId = val),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
 
               // Big Primary Action Button (Clock In / Clock Out)
               if (_isLoadingStatus) ...[
@@ -360,7 +491,7 @@ class _ClockScreenState extends State<ClockScreen> {
                 )
               ] else ...[
                 SizedBox(
-                  height: 140,
+                  height: 120,
                   child: ElevatedButton(
                     onPressed: _isActionInProgress ? null : _handleClockAction,
                     style: ElevatedButton.styleFrom(
@@ -387,7 +518,7 @@ class _ClockScreenState extends State<ClockScreen> {
                                 isClockedIn
                                     ? Icons.timer_off_rounded
                                     : Icons.timer_rounded,
-                                size: 48,
+                                size: 44,
                               ),
                               const SizedBox(height: 8),
                               Text(
@@ -404,7 +535,7 @@ class _ClockScreenState extends State<ClockScreen> {
                 ),
               ],
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
 
               // Security & Telemetry Notice
               Container(

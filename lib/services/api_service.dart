@@ -133,18 +133,50 @@ class ApiService {
   }
 
   /// GET /attendance/history (Bearer token)
-  static Future<Map<String, dynamic>> getAttendanceHistory({int page = 1}) async {
-    final url = Uri.parse('$baseUrl${ApiConstants.attendanceHistoryEndpoint}?page=$page');
+  static Future<Map<String, dynamic>> getAttendanceHistory({
+    int page = 1,
+    int perPage = 15,
+    String? dateFrom,
+    String? dateTo,
+    String? status,
+  }) async {
+    final queryParams = <String, String>{
+      'page': page.toString(),
+      'per_page': perPage.toString(),
+    };
+    if (dateFrom != null && dateFrom.isNotEmpty) {
+      queryParams['date_from'] = dateFrom;
+    }
+    if (dateTo != null && dateTo.isNotEmpty) {
+      queryParams['date_to'] = dateTo;
+    }
+    if (status != null && status.isNotEmpty) {
+      queryParams['status'] = status;
+    }
+
+    final uri = Uri.parse('$baseUrl${ApiConstants.attendanceHistoryEndpoint}').replace(queryParameters: queryParams);
     final response = await http.get(
-      url,
+      uri,
       headers: await _getHeaders(),
     );
     return _parseResponse(response);
   }
 
   /// Typed GET /attendance/history list
-  static Future<List<AttendanceRecord>> getAttendanceHistoryRecords({int page = 1}) async {
-    final res = await getAttendanceHistory(page: page);
+  static Future<List<AttendanceRecord>> getAttendanceHistoryRecords({
+    int page = 1,
+    int perPage = 15,
+    String? dateFrom,
+    String? dateTo,
+    String? status,
+  }) async {
+    final res = await getAttendanceHistory(
+      page: page,
+      perPage: perPage,
+      dateFrom: dateFrom,
+      dateTo: dateTo,
+      status: status,
+    );
     final data = res['data'];
     List<dynamic> items = [];
     if (data is List) {
