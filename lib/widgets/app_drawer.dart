@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../core/constants/app_constants.dart';
+import '../providers/theme_provider.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/clock/clock_screen.dart';
 import '../screens/dtr/dtr_screen.dart';
 import '../screens/history/history_screen.dart';
+import '../screens/profile/profile_screen.dart';
 import '../services/api_service.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -49,6 +51,7 @@ class AppDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = ThemeProviderScope.of(context);
     const navyBackground = Color(0xFF1E293B);
     const navyHeader = Color(0xFF0F172A);
     const activePillColor = Color(0xFF2563EB);
@@ -63,12 +66,12 @@ class AppDrawer extends StatelessWidget {
             // Header: Logo & Branding
             Container(
               color: navyHeader,
-              padding: const EdgeInsets.only(top: 48, bottom: 20, left: 20, right: 20),
+              padding: const EdgeInsets.only(top: 48, bottom: 20, left: 20, right: 12),
               child: Row(
                 children: [
                   Container(
-                    width: 48,
-                    height: 48,
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
                       color: Colors.white.withAlpha(20),
                       borderRadius: BorderRadius.circular(12),
@@ -79,7 +82,7 @@ class AppDrawer extends StatelessWidget {
                       fit: BoxFit.contain,
                     ),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 12),
                   const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -88,7 +91,7 @@ class AppDrawer extends StatelessWidget {
                           'WALDO',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 22,
+                            fontSize: 20,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1.1,
                           ),
@@ -97,13 +100,22 @@ class AppDrawer extends StatelessWidget {
                           'SECURITY AGENCY INC.',
                           style: TextStyle(
                             color: textMuted,
-                            fontSize: 10,
+                            fontSize: 9,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.8,
                           ),
                         ),
                       ],
                     ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      themeProvider.isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                    tooltip: themeProvider.isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+                    onPressed: () => themeProvider.toggleTheme(),
                   ),
                 ],
               ),
@@ -177,6 +189,25 @@ class AppDrawer extends StatelessWidget {
                     onTap: () {
                       if (currentRoute != 'dtr') {
                         _navigateTo(context, const DtrScreen());
+                      } else {
+                        Navigator.pop(context);
+                      }
+                    },
+                    activeColor: activePillColor,
+                    mutedColor: textMuted,
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  // 4. My Profile
+                  _buildNavItem(
+                    context: context,
+                    icon: Icons.person_outline_rounded,
+                    label: 'My Profile',
+                    isSelected: currentRoute == 'profile',
+                    onTap: () {
+                      if (currentRoute != 'profile') {
+                        _navigateTo(context, const ProfileScreen());
                       } else {
                         Navigator.pop(context);
                       }

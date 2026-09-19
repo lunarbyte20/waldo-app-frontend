@@ -4,6 +4,7 @@ import '../../models/attendance_record.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/error_banner.dart';
+import '../../widgets/waldo_app_bar.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -134,17 +135,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
     return Scaffold(
       drawer: const AppDrawer(currentRoute: 'attendance'),
-      appBar: AppBar(
-        title: const Text('My Attendance Records'),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => _fetchHistory(page: 1),
-            tooltip: 'Refresh Records',
-          ),
-        ],
-      ),
+      appBar: const WaldoAppBar(title: 'My Attendance Records'),
       body: RefreshIndicator(
         onRefresh: () => _fetchHistory(page: 1),
         child: SingleChildScrollView(

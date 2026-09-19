@@ -6,8 +6,8 @@ import '../../core/constants/app_constants.dart';
 import '../../models/attendance_record.dart';
 import '../../services/api_service.dart';
 import '../../services/telemetry_service.dart';
-import '../auth/login_screen.dart';
 import '../../widgets/app_drawer.dart';
+import '../../widgets/waldo_app_bar.dart';
 
 class ClockScreen extends StatefulWidget {
   const ClockScreen({super.key});
@@ -199,28 +199,6 @@ class _ClockScreenState extends State<ClockScreen> {
     );
   }
 
-  Future<void> _handleLogout() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Sign Out'),
-        content: const Text('Are you sure you want to sign out of WALDO Guard App?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sign Out')),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      await ApiService.logout();
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
-    }
-  }
-
   void _showSnackBar(String message, {bool isSuccess = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -254,22 +232,7 @@ class _ClockScreenState extends State<ClockScreen> {
 
     return Scaffold(
       drawer: const AppDrawer(currentRoute: 'clock'),
-      appBar: AppBar(
-        title: const Text('WALDO Guard Clock'),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Refresh Status',
-            onPressed: _fetchAttendanceStatus,
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout_rounded),
-            tooltip: 'Sign Out',
-            onPressed: _handleLogout,
-          ),
-        ],
-      ),
+      appBar: const WaldoAppBar(title: 'WALDO Guard Clock'),
       body: RefreshIndicator(
         onRefresh: _fetchAttendanceStatus,
         child: SingleChildScrollView(

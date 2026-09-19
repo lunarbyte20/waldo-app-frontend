@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../models/attendance_record.dart';
 import '../../services/api_service.dart';
 import '../../widgets/app_drawer.dart';
+import '../../widgets/waldo_app_bar.dart';
 
 class CutoffPeriodItem {
   final dynamic id;
@@ -438,17 +439,7 @@ class _DtrScreenState extends State<DtrScreen> {
 
     return Scaffold(
       drawer: const AppDrawer(currentRoute: 'dtr'),
-      appBar: AppBar(
-        title: const Text('My DTR Reports'),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _fetchDtrData,
-            tooltip: 'Refresh DTR',
-          ),
-        ],
-      ),
+      appBar: const WaldoAppBar(title: 'My DTR Reports'),
       body: RefreshIndicator(
         onRefresh: _fetchDtrData,
         child: SingleChildScrollView(
